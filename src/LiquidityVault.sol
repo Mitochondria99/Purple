@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract LiquidityVault is ERC4626, Ownable {
     uint256 public reservedLiquidity;
-    address private _asset;
+    IERC20 private immutable _asset;
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
@@ -25,13 +25,13 @@ contract LiquidityVault is ERC4626, Ownable {
         _;
     }
 
-    // make changes here
-    constructor(address token) {
+    // Need to be changed
+    constructor(IERC20 token) {
         _asset = token;
     }
 
-    function asset() public view returns (address) {
-        return _asset;
+    function asset() public view override returns (address) {
+        return address(_asset);
     }
 
     function deposit(uint256 amount) external {
