@@ -1,3 +1,7 @@
+//Modify Deposit, Withdraw, Reserve and Release functions
+// Modify Constructor
+// ReserveLiquidity issue to be corrected
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
@@ -7,12 +11,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract LiquidityVault is ERC4626, Ownable {
     uint256 public reservedLiquidity;
+    address private _asset;
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event LiquidityReserved(address indexed user, uint256 amount);
-    event LiquidityReleased(address indexed user, uint256 amount);
-
+    event LiquidityReserved(uint256 amount);
+    event LiquidityReleased(uint256 amount);
     mapping(address => bool) public authorizedAddresses;
 
     modifier onlyAuthorized() {
@@ -20,8 +24,13 @@ contract LiquidityVault is ERC4626, Ownable {
         _;
     }
 
-    constructor(address _token) ERC4626(IERC20(_token)) {
-        reservedLiquidity = 0;
+    // make changes here
+    constructor(address token) {
+        _asset = token;
+    }
+
+    function asset() public view returns (address) {
+        return _asset;
     }
 
     function deposit(uint256 amount) external {
