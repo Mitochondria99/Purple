@@ -1,19 +1,18 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract LiquidityVault is ERC4626, Ownable {
     uint256 public reservedLiquidity;
 
-    // For better transparency, using events to log activities on the contract
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event LiquidityReserved(uint256 amount);
-    event LiquidityReleased(uint256 amount);
+    event LiquidityReserved(address indexed user, uint256 amount);
+    event LiquidityReleased(address indexed user, uint256 amount);
 
-    // This ensures that only authorized addresses can reserve and release liquidity.
     mapping(address => bool) public authorizedAddresses;
 
     modifier onlyAuthorized() {
@@ -21,39 +20,72 @@ contract LiquidityVault is ERC4626, Ownable {
         _;
     }
 
-    constructor(address _token) ERC4626(_token) {}
-
-    // Allows the owner to authorize/deauthorize trader contracts
-    function setAuthorization(
-        address _address,
-        bool _status
-    ) external onlyOwner {
-        authorizedAddresses[_address] = _status;
+    constructor(address _token) ERC4626(IERC20(_token)) {
+        reservedLiquidity = 0;
     }
 
     function deposit(uint256 amount) external {
-        _deposit(msg.sender, msg.sender, amount, amount); // Simplified for the demonstration
+        require(amount > 0, "Deposit > 0");
+
+        // Transfer the assets to the vault
+        IERC20(asset()).transferFrom(msg.sender, address(this), amount);
+
+        // Calculate the shares to mint for the depositor based on the vault's exchange rate
+        uint256 sharesToMint = previewDeposit(amount);
+
+        // Mint the shares to the depositor's address
+        _mint(msg.sender, sharesToMint);
+
         emit Deposited(msg.sender, amount);
     }
 
-    function withdraw(uint256 amount) external {
+    function withdraw(uint256 shares) external {
+        require(shares > 0, "Withdrawal shares > 0");
+        require(balanceOf(msg.sender) >= shares, "Insufficient shares");
+
+        // Calculate the assets to return to the user based on the vault's exchange rate
+        uint256 assetsToReturn = previewWithdraw(shares);
+
+        // Check if the vault has enough assets for withdrawal
         require(
-            amount + reservedLiquidity <= totalSupply(),
-            "Cannot withdraw reserved liquidity"
+            IERC20(asset()).balanceOf(address(this)) >= assetsToReturn,
+            "Vault has insufficient assets"
         );
-        _withdraw(msg.sender, msg.sender, msg.sender, amount, amount);
-        emit Withdrawn(msg.sender, amount);
+
+        // Burn shares from the user's balance
+        _burn(msg.sender, shares);
+
+        // Transfer the assets to the user
+        IERC20(asset()).transfer(msg.sender, assetsToReturn);
+
+        emit Withdrawn(msg.sender, assetsToReturn);
     }
 
-    // Only trader contracts can reserve liquidity for trading operations.
     function reserve(uint256 amount) external onlyAuthorized {
+        // Ensure there's enough available liquidity to reserve the given amount.
+        uint256 availableLiquidity = totalSupply() - reservedLiquidity;
+        require(
+            amount <= availableLiquidity,
+            "Insufficient available liquidity to reserve"
+        );
+
+        // Update the reserved liquidity.
         reservedLiquidity += amount;
+
+        // Emit an event for tracking.
         emit LiquidityReserved(amount);
     }
 
-    // Only trader contracts can release liquidity post trading operations.
     function release(uint256 amount) external onlyAuthorized {
+        require(
+            amount <= reservedLiquidity,
+            "Cannot release more than reserved liquidity"
+        );
+
+        // Subtract the released amount from the reserved liquidity
         reservedLiquidity -= amount;
+
+        // Emit an event to log the amount of liquidity released
         emit LiquidityReleased(amount);
     }
 }
