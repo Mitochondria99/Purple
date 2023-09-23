@@ -4,20 +4,21 @@
 // ReserveLiquidity issue to be corrected
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract LiquidityVault is ERC4626, Ownable {
+contract LiquidityVault is ERC4626 {
     uint256 public reservedLiquidity;
-    IERC20 private immutable _asset;
+    IERC20 private immutable _asset; //BTC
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event LiquidityReserved(uint256 amount);
     event LiquidityReleased(uint256 amount);
+
     mapping(address => bool) public authorizedAddresses;
 
     modifier onlyAuthorized() {
@@ -26,8 +27,15 @@ contract LiquidityVault is ERC4626, Ownable {
     }
 
     // Need to be changed
-    constructor(IERC20 token) {
-        _asset = token;
+    // constructor(IERC20 token) {
+    //     _asset = token;
+    // }
+    constructor(
+        ERC20 _token, //USDT/DAI
+        string memory _name,
+        string memory _symbol
+    ) ERC4626(_token) ERC20(_name, _symbol) {
+        _asset = _token;
     }
 
     function asset() public view override returns (address) {
