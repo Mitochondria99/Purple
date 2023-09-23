@@ -27,7 +27,7 @@ contract LiquidityVault is ERC4626 {
     }
 
     constructor(
-        ERC20 _token, //USDT/DAI
+        IERC20 _token, //USDT/DAI
         string memory _name,
         string memory _symbol
     ) ERC4626(_token) ERC20(_name, _symbol) {
@@ -42,7 +42,7 @@ contract LiquidityVault is ERC4626 {
         require(amount > 0, "Deposit > 0");
 
         // Transfer the assets to the vault
-        IERC20(asset()).transferFrom(msg.sender, address(this), amount);
+        _asset.transferFrom(msg.sender, address(this), amount);
 
         // Calculate the shares to mint for the depositor based on the vault's exchange rate
         uint256 sharesToMint = previewDeposit(amount);
@@ -62,7 +62,7 @@ contract LiquidityVault is ERC4626 {
 
         // Check if the vault has enough assets for withdrawal
         require(
-            IERC20(asset()).balanceOf(address(this)) >= assetsToReturn,
+            _asset.balanceOf(address(this)) >= assetsToReturn,
             "Vault has insufficient assets"
         );
 
@@ -70,7 +70,7 @@ contract LiquidityVault is ERC4626 {
         _burn(msg.sender, shares);
 
         // Transfer the assets to the user
-        IERC20(asset()).transfer(msg.sender, assetsToReturn);
+        _asset.transfer(msg.sender, assetsToReturn);
 
         emit Withdrawn(msg.sender, assetsToReturn);
     }
