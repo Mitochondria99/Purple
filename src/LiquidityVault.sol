@@ -26,10 +26,6 @@ contract LiquidityVault is ERC4626 {
         _;
     }
 
-    // Need to be changed
-    // constructor(IERC20 token) {
-    //     _asset = token;
-    // }
     constructor(
         ERC20 _token, //USDT/DAI
         string memory _name,
@@ -80,7 +76,7 @@ contract LiquidityVault is ERC4626 {
     }
 
     function reserve(uint256 amount) external onlyAuthorized {
-        // Ensure there's enough available liquidity to reserve the given amount.
+        // Ensure there's enough available liquidity to reserve for trader's positions
         uint256 availableLiquidity = totalSupply() - reservedLiquidity;
         require(
             amount <= availableLiquidity,
