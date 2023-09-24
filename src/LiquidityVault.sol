@@ -96,7 +96,6 @@ contract LiquidityVault is ERC4626 {
             "Cannot release more than reserved liquidity"
         );
 
-        // Subtract the released amount from the reserved liquidity
         reservedLiquidity -= amount;
 
         // Emit an event to log the amount of liquidity released
