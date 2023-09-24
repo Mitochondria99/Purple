@@ -1,5 +1,6 @@
 // Hella confused with values, need to check this again
 // doubting closePosition func
+// consideration of leverage?
 
 //SPDX-License-Identifier:MIT
 
@@ -52,7 +53,7 @@ contract TraderContract is Ownable {
     }
 
     function openPosition(uint256 size, PositionType positionType) external {
-        require(collaterals[msg.sender] > 0, "Deposit collateral first");
+        require(collaterals[msg.sender] > 0, "Deposit collateral");
         require(!positions[msg.sender].isOpen, "Position already open");
 
         uint256 requiredLiquidity = size;
@@ -99,7 +100,7 @@ contract TraderContract is Ownable {
     }
 
     function closePosition() external {
-        require(positions[msg.sender].isOpen, "No open position to close");
+        require(positions[msg.sender].isOpen, "No open position");
 
         liquidityVault.release(positions[msg.sender].size);
         positions[msg.sender].isOpen = false;
