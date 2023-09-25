@@ -44,12 +44,11 @@ contract LiquidityVault is ERC4626 {
         // Transfer the assets to the vault
         _asset.transferFrom(msg.sender, address(this), amount);
 
-        // Calculate the shares to mint for the depositor based on the vault's exchange rate
+        // based on the vault's exchange rate
         uint256 sharesToMint = previewDeposit(amount);
 
         // Mint the shares to the depositor's address
         _mint(msg.sender, sharesToMint);
-
         emit Deposited(msg.sender, amount);
     }
 
@@ -71,7 +70,6 @@ contract LiquidityVault is ERC4626 {
 
         // Transfer the assets to the user
         _asset.transfer(msg.sender, assetsToReturn);
-
         emit Withdrawn(msg.sender, assetsToReturn);
     }
 
@@ -82,11 +80,8 @@ contract LiquidityVault is ERC4626 {
             amount <= availableLiquidity,
             "Insufficient available liquidity to reserve"
         );
-
         // Update the reserved liquidity.
         reservedLiquidity += amount;
-
-        // Emit an event for tracking.
         emit LiquidityReserved(amount);
     }
 
@@ -95,10 +90,7 @@ contract LiquidityVault is ERC4626 {
             amount <= reservedLiquidity,
             "Cannot release more than reserved liquidity"
         );
-
         reservedLiquidity -= amount;
-
-        // Emit an event to log the amount of liquidity released
         emit LiquidityReleased(amount);
     }
 }

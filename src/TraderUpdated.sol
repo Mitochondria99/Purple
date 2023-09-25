@@ -55,34 +55,27 @@ contract TraderContract is Ownable {
     function openPosition(uint256 size, PositionType positionType) external {
         require(collaterals[msg.sender] > 0, "Deposit collateral");
         require(!positions[msg.sender].isOpen, "Position already open");
-
         uint256 requiredLiquidity = size;
         uint256 availableLiquidity = ((liquidityVault.totalSupply() *
             maxUtilizationPercent) / 100) - liquidityVault.reservedLiquidity();
-
         require(
             requiredLiquidity <= availableLiquidity,
             "Exceeds max utilization"
         );
-
         liquidityVault.reserve(requiredLiquidity);
-
         positions[msg.sender] = Position({
             size: size,
             positionType: positionType,
             isOpen: true
         });
-
         emit PositionOpened(msg.sender, size, positionType);
     }
 
     function increasePositionSize(uint256 additionalSize) external {
         require(positions[msg.sender].isOpen, "No open position");
-
         uint256 requiredLiquidity = additionalSize;
         uint256 availableLiquidity = ((liquidityVault.totalSupply() *
             maxUtilizationPercent) / 100) - liquidityVault.reservedLiquidity();
-
         require(
             requiredLiquidity <= availableLiquidity,
             "Exceeds max utilization"
@@ -90,7 +83,6 @@ contract TraderContract is Ownable {
 
         liquidityVault.reserve(requiredLiquidity);
         positions[msg.sender].size += additionalSize;
-
         emit PositionIncreased(msg.sender, positions[msg.sender].size);
     }
 
@@ -101,10 +93,8 @@ contract TraderContract is Ownable {
 
     function closePosition() external {
         require(positions[msg.sender].isOpen, "No open position");
-
         liquidityVault.release(positions[msg.sender].size);
         positions[msg.sender].isOpen = false;
-
         emit PositionClosed(msg.sender);
     }
 }
