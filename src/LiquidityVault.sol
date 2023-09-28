@@ -1,6 +1,4 @@
 //check ERC4626 thoroughly
-//Modify Deposit, Withdraw, Reserve and Release functions
-// Modify Constructor
 // ReserveLiquidity issue to be corrected
 
 // SPDX-License-Identifier: MIT
@@ -10,87 +8,61 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract LiquidityVault is ERC4626 {
-    uint256 public reservedLiquidity;
-    IERC20 private immutable _asset; //BTC
+interface ITrader {
+    function totalOpenInterest() external view returns (uint256);
+
+    function maxUtilizationPercentage() external view returns (uint256);
+}
+
+contract LiquidityVault is ERC4626, Ownable {
+    IERC20 private _asset;
+    ITrader private trader;
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event LiquidityReserved(uint256 amount);
-    event LiquidityReleased(uint256 amount);
-
-    mapping(address => bool) public authorizedAddresses;
-
-    modifier onlyAuthorized() {
-        require(authorizedAddresses[msg.sender], "Not authorized");
-        _;
-    }
 
     constructor(
-        IERC20 _token, //USDT/DAI
-        string memory _name,
-        string memory _symbol
-    ) ERC4626(_token) ERC20(_name, _symbol) {
-        _asset = _token;
+        IERC20 assetToken,
+        string memory name,
+        string memory symbol,
+        address traderAddress
+    ) ERC4626(assetToken) ERC20(name, symbol) {
+        _asset = assetToken;
+        trader = ITrader(traderAddress);
     }
 
-    function asset() public view override returns (address) {
-        return address(_asset);
+    function setTraderAddress(address newTraderAddress) external onlyOwner {
+        trader = ITrader(newTraderAddress);
     }
 
     function deposit(uint256 amount) external {
-        require(amount > 0, "Deposit > 0");
-
-        // Transfer the assets to the vault
+        require(amount > 0, "Deposit amount should be > 0");
         _asset.transferFrom(msg.sender, address(this), amount);
-
-        // based on the vault's exchange rate
         uint256 sharesToMint = previewDeposit(amount);
-
-        // Mint the shares to the depositor's address
         _mint(msg.sender, sharesToMint);
         emit Deposited(msg.sender, amount);
     }
 
     function withdraw(uint256 shares) external {
-        require(shares > 0, "Withdrawal shares > 0");
+        require(shares > 0, "Withdrawal shares should be > 0");
         require(balanceOf(msg.sender) >= shares, "Insufficient shares");
 
-        // Calculate the assets to return to the user based on the vault's exchange rate
         uint256 assetsToReturn = previewWithdraw(shares);
 
-        // Check if the vault has enough assets for withdrawal
+        // Utilization check
+        uint256 openInterest = trader.totalOpenInterest();
         require(
-            _asset.balanceOf(address(this)) >= assetsToReturn,
-            "Vault has insufficient assets"
+            (openInterest * 100) / (totalAssets() - assetsToReturn) <=
+                trader.maxUtilizationPercentage(),
+            "Exceeds max utilization"
         );
 
-        // Burn shares from the user's balance
         _burn(msg.sender, shares);
-
-        // Transfer the assets to the user
         _asset.transfer(msg.sender, assetsToReturn);
         emit Withdrawn(msg.sender, assetsToReturn);
     }
 
-    function reserve(uint256 amount) external onlyAuthorized {
-        // Ensure there's enough available liquidity to reserve for trader's positions
-        uint256 availableLiquidity = totalSupply() - reservedLiquidity;
-        require(
-            amount <= availableLiquidity,
-            "Insufficient available liquidity to reserve"
-        );
-        // Update the reserved liquidity.
-        reservedLiquidity += amount;
-        emit LiquidityReserved(amount);
-    }
-
-    function release(uint256 amount) external onlyAuthorized {
-        require(
-            amount <= reservedLiquidity,
-            "Cannot release more than reserved liquidity"
-        );
-        reservedLiquidity -= amount;
-        emit LiquidityReleased(amount);
+    function totalAssets() public view override returns (uint256) {
+        return _asset.balanceOf(address(this));
     }
 }
