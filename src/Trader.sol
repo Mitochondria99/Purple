@@ -1,6 +1,10 @@
 // Hella confused with values, need to check this again
 // doubting closePosition func
-// consideration of leverage?// SPDX-License-Identifier:MIT
+
+// TODO: consideration of leverage?
+//TODO: Liquidation code
+
+// SPDX-License-Identifier:MIT
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,9 +16,10 @@ contract TraderContract is Ownable {
     IERC20 private _asset; // The collateral and trading asset
     LiquidityVault public liquidityVault;
     PriceFeed public priceFeed;
+    uint256 public minimumPositionSize;
 
     uint256 private _totalOpenInterest;
-    uint256 public maxUtilizationPercentage = 80; // 80% max utilization of total liquidity
+    uint256 public maxUtilizationPercentage = 80; // max utilization of total liquidity
 
     enum PositionType {
         LONG,
@@ -24,8 +29,10 @@ contract TraderContract is Ownable {
     struct Position {
         uint256 size;
         PositionType positionType;
+        uint256 collateral;
         bool isOpen;
         uint256 sizeInTokens;
+        uint256 entryPrice;
     }
 
     mapping(address => uint256) public collaterals;
@@ -64,53 +71,79 @@ contract TraderContract is Ownable {
         emit CollateralIncreased(msg.sender, collaterals[msg.sender]);
     }
 
-    function openPosition(uint256 size, PositionType positionType) external {
-        require(collaterals[msg.sender] > 0, "Deposit collateral first");
-        require(!positions[msg.sender].isOpen, "Position already open");
-
-        uint256 requiredLiquidity = size;
-        uint256 availableLiquidity = (liquidityVault.totalAssets() *
-            maxUtilizationPercentage) / 100;
-
-        require(
-            _totalOpenInterest + requiredLiquidity <= availableLiquidity,
-            "Exceeds max utilization"
-        );
-
-        _totalOpenInterest += requiredLiquidity;
+    function openPosition(
+        uint256 size,
+        uint256 collateralAmount,
+        PositionType positionType
+    ) external {
+        require(size >= minimumPositionSize, "Position size below minimum");
 
         uint256 currentPrice = priceFeed.getPrice();
         uint256 sizeInTokens = size / currentPrice;
 
-        positions[msg.sender] = Position({
+        require(
+            collaterals[msg.sender] >= collateralAmount,
+            "Insufficient collateral"
+        );
+
+        Position memory newPosition = Position({
             size: size,
+            sizeInTokens: sizeInTokens,
+            collateral: collateralAmount,
+            entryPrice: currentPrice,
             positionType: positionType,
-            isOpen: true,
-            sizeInTokens: sizeInTokens
+            isOpen: true
         });
 
-        emit PositionOpened(msg.sender, size, positionType);
+        positions[msg.sender] = newPosition; // long or short (ID )
+        collaterals[msg.sender] -= collateralAmount;
+        _totalOpenInterest += size;
     }
 
     function increasePositionSize(uint256 additionalSize) external {
-        require(positions[msg.sender].isOpen, "No open position");
+        Position storage position = positions[msg.sender];
+        uint256 currentPrice = priceFeed.getPrice();
+        uint256 additionalSizeInTokens = additionalSize / currentPrice; // Calculate size in index tokens
 
-        uint256 requiredLiquidity = additionalSize;
-        uint256 availableLiquidity = (liquidityVault.totalAssets() *
-            maxUtilizationPercentage) / 100;
-
+        require(position.isOpen, "No open position");
         require(
-            _totalOpenInterest + requiredLiquidity <= availableLiquidity,
-            "Exceeds max utilization"
+            collaterals[msg.sender] >= additionalSize,
+            "Insufficient collateral"
         );
 
-        _totalOpenInterest += requiredLiquidity;
+        position.size += additionalSize;
+        position.sizeInTokens += additionalSizeInTokens;
 
-        positions[msg.sender].size += additionalSize;
+        // Deducting collateral from user's available collateral
+        collaterals[msg.sender] -= additionalSize;
+
+        // Updating totalOpenInterest
+        _totalOpenInterest += additionalSize;
+    }
+
+    function decreasePositionSize(uint256 sizeToDecrease) external {
+        Position storage position = positions[msg.sender];
+        require(position.isOpen, "No open position");
+        require(
+            position.size >= sizeToDecrease,
+            "Decreasing more than position size"
+        );
+
         uint256 currentPrice = priceFeed.getPrice();
-        positions[msg.sender].sizeInTokens += additionalSize / currentPrice;
+        uint256 pnl;
 
-        emit PositionIncreased(msg.sender, positions[msg.sender].size);
+        if (position.positionType == PositionType.LONG) {
+            pnl = (currentPrice - position.entryPrice) * sizeToDecrease;
+        } else {
+            pnl = (position.entryPrice - currentPrice) * sizeToDecrease;
+        }
+
+        // Adjust the position size and collateral
+        position.size -= sizeToDecrease;
+        position.collateral += pnl; // This can be negative, decreasing the collateral
+
+        // Update totalOpenInterest
+        _totalOpenInterest -= sizeToDecrease;
     }
 
     function closePosition() external {

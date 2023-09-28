@@ -5,8 +5,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../src//LiquidityVault.sol";
-import "./mock/MockERC20.sol";
+import "../../src/LiquidityVault.sol";
+import "../mock/MockERC20.sol";
 
 contract LiquidityVaultTest is Test {
     LiquidityVault vault;
