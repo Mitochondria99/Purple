@@ -1,98 +1,128 @@
 // Hella confused with values, need to check this again
 // doubting closePosition func
-// consideration of leverage?
+// consideration of leverage?// SPDX-License-Identifier:MIT
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./PriceFeed.sol";
 import "./LiquidityVault.sol";
+import "./PriceFeed.sol";
 
-contract TraderHub is Ownable {
+contract TraderContract is Ownable {
+    IERC20 private _asset; // The collateral and trading asset
+    LiquidityVault public liquidityVault;
+    PriceFeed public priceFeed;
+
+    uint256 private _totalOpenInterest;
+    uint256 public maxUtilizationPercentage = 80; // 80% max utilization of total liquidity
+
     enum PositionType {
         LONG,
         SHORT
     }
 
     struct Position {
-        uint256 size; // in USD
-        uint256 collateral; // amount of tokens collateralized
-        uint256 sizeInTokens;
+        uint256 size;
         PositionType positionType;
+        bool isOpen;
+        uint256 sizeInTokens;
     }
 
+    mapping(address => uint256) public collaterals;
     mapping(address => Position) public positions;
-    IERC20 public collateralToken;
-    PriceFeed public priceFeed;
-    LiquidityVault public liquidityVault;
-    uint256 public maxUtilizationPercent = 80; // Sample percentage
 
-    constructor(
-        address _collateralToken,
-        address _priceFeed,
-        address _liquidityVault
-    ) {
-        collateralToken = IERC20(_collateralToken);
-        priceFeed = PriceFeed(_priceFeed);
-        liquidityVault = LiquidityVault(_liquidityVault);
-    }
-
-    uint256 private _totalOpenInterest;
-
-    function totalOpenInterest() public view returns (uint256) {
-        return _totalOpenInterest;
-    }
-
-    function openPosition(
-        uint256 collateralAmount,
+    event CollateralDeposited(address indexed trader, uint256 amount);
+    event CollateralIncreased(
+        address indexed trader,
+        uint256 newCollateralAmount
+    );
+    event PositionOpened(
+        address indexed trader,
         uint256 size,
         PositionType positionType
-    ) external {
-        uint256 btcPrice = priceFeed.getPrice();
-        uint256 sizeInTokens = size / btcPrice;
+    );
+    event PositionIncreased(address indexed trader, uint256 newSize);
+    event PositionClosed(address indexed trader);
+
+    constructor(address _liquidityVault, address _priceFeed, IERC20 asset) {
+        liquidityVault = LiquidityVault(_liquidityVault);
+        priceFeed = PriceFeed(_priceFeed);
+        _asset = asset;
+    }
+
+    function depositCollateral(uint256 amount) external {
+        require(amount > 0, "Amount should be greater than 0");
+        _asset.transferFrom(msg.sender, address(this), amount);
+        collaterals[msg.sender] += amount;
+        emit CollateralDeposited(msg.sender, amount);
+    }
+
+    function increaseCollateral(uint256 additionalAmount) external {
+        require(additionalAmount > 0, "Amount should be greater than 0");
+        _asset.transferFrom(msg.sender, address(this), additionalAmount);
+        collaterals[msg.sender] += additionalAmount;
+        emit CollateralIncreased(msg.sender, collaterals[msg.sender]);
+    }
+
+    function openPosition(uint256 size, PositionType positionType) external {
+        require(collaterals[msg.sender] > 0, "Deposit collateral first");
+        require(!positions[msg.sender].isOpen, "Position already open");
+
+        uint256 requiredLiquidity = size;
+        uint256 availableLiquidity = (liquidityVault.totalAssets() *
+            maxUtilizationPercentage) / 100;
+
+        require(
+            _totalOpenInterest + requiredLiquidity <= availableLiquidity,
+            "Exceeds max utilization"
+        );
+
+        _totalOpenInterest += requiredLiquidity;
+
+        uint256 currentPrice = priceFeed.getPrice();
+        uint256 sizeInTokens = size / currentPrice;
 
         positions[msg.sender] = Position({
             size: size,
-            collateral: collateralAmount,
-            sizeInTokens: sizeInTokens,
-            positionType: positionType
+            positionType: positionType,
+            isOpen: true,
+            sizeInTokens: sizeInTokens
         });
 
-        // Transfer collateral from the trader
-        collateralToken.transferFrom(
-            msg.sender,
-            address(this),
-            collateralAmount
+        emit PositionOpened(msg.sender, size, positionType);
+    }
+
+    function increasePositionSize(uint256 additionalSize) external {
+        require(positions[msg.sender].isOpen, "No open position");
+
+        uint256 requiredLiquidity = additionalSize;
+        uint256 availableLiquidity = (liquidityVault.totalAssets() *
+            maxUtilizationPercentage) / 100;
+
+        require(
+            _totalOpenInterest + requiredLiquidity <= availableLiquidity,
+            "Exceeds max utilization"
         );
 
-        // Update the total open interest
-        _totalOpenInterest += size;
+        _totalOpenInterest += requiredLiquidity;
+
+        positions[msg.sender].size += additionalSize;
+        uint256 currentPrice = priceFeed.getPrice();
+        positions[msg.sender].sizeInTokens += additionalSize / currentPrice;
+
+        emit PositionIncreased(msg.sender, positions[msg.sender].size);
     }
 
-    function increasePositionSize(
-        address traderAddress,
-        uint256 additionalSize
-    ) external {
-        uint256 btcPrice = priceFeed.getPrice();
-        uint256 additionalSizeInTokens = additionalSize / btcPrice;
+    function closePosition() external {
+        require(positions[msg.sender].isOpen, "No open position");
 
-        positions[traderAddress].size += additionalSize;
-        positions[traderAddress].sizeInTokens += additionalSizeInTokens;
+        _totalOpenInterest -= positions[msg.sender].size;
 
-        // Update the total open interest
-        _totalOpenInterest += additionalSize;
+        positions[msg.sender].isOpen = false;
+        emit PositionClosed(msg.sender);
     }
 
-    function closePosition(address traderAddress) external {
-        Position storage position = positions[traderAddress];
-        require(position.size > 0, "No position open");
-
-        //(Friday)Logic to handle PnL, pay profits to trader or losses to LP would go here
-
-        // Deduct from the total open interest
-        _totalOpenInterest -= position.size;
-
-        // Reset the trader's position
-        delete positions[traderAddress];
+    function totalOpenInterest() public view returns (uint256) {
+        return _totalOpenInterest;
     }
 }
