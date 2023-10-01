@@ -203,23 +203,18 @@ contract TraderContract is Ownable {
         _totalOpenInterest -= sizeToDecrease;
     }
 
-    // function closePosition(uint256 positionId) external {
-    //     require(
-    //         positions[msg.sender][positionId].isOpen,
-    //         "Position is already closed or doesn't exist."
-    //     );
+    function closePosition(uint256 positionId) external {
+        require(
+            positions[msg.sender][positionId].isOpen,
+            "Position is closed or doesn't exist."
+        );
 
-    //     Position storage positionToClose = positions[msg.sender][positionId];
-
-    //     // Adjust the collateral based on PnL
-    //     _adjustCollateralBasedOnPnL(positionToClose);
-
-    //     // Updating totalOpenInterest
-    //     _totalOpenInterest -= positionToClose.size;
-
-    //     // Mark the position as closed
-    //     positionToClose.isOpen = false;
-    // }
+        Position storage positionToClose = positions[msg.sender][positionId];
+        _adjustCollateralBasedOnPnL(positionToClose, 0);
+        _totalOpenInterest -= positionToClose.size;
+        positionToClose.isOpen = false;
+        collaterals[msg.sender] += positionToClose.collateral;
+    }
 
     function _adjustCollateralBasedOnPnL(
         Position storage position,
@@ -249,23 +244,20 @@ contract TraderContract is Ownable {
             // Transfer the loss amount to the liquidityVault
             collaterals[msg.sender] -= loss;
             _asset.transfer(address(liquidityVault), loss);
+        } else {
+            position.collateral += uint256(totalPnL);
         }
 
-        // Calculate the new collateral after considering PnL
-        int256 newCollateral = int256(position.collateral) + totalPnL;
-        require(newCollateral > 0, "Position liquidated");
+        require(position.collateral > 0, "Position liquidated");
         uint256 requiredCollateralForNewSize = newSize / MAX_LEVERAGE;
 
         // Ensuring the trader has enough collateral to support the new size, sigh!
         require(
-            uint256(newCollateral) >= requiredCollateralForNewSize,
+            position.collateral >= requiredCollateralForNewSize,
             "Insufficient collateral for new size"
         );
-        uint256 newLeverage = newSize / uint256(newCollateral);
+        uint256 newLeverage = newSize / position.collateral;
         require(newLeverage <= MAX_LEVERAGE, "Exceeds maximum leverage");
-
-        // Update the position's collateral
-        position.collateral = uint256(newCollateral);
     }
 
     function totalOpenInterest() public view returns (uint256) {
