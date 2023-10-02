@@ -1,5 +1,3 @@
-//TODO: Liquidation Fee code
-//TODO: BORROWING_PER_SHARE_PER_SECOND decimal arrangement
 
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.8.19;
