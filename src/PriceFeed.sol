@@ -8,6 +8,6 @@ contract PriceFeed {
             0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43
         );
         (, int256 price, , , ) = priceFeed.latestRoundData();
-        return uint256(price / 1e8);
+        return uint256(price / 1e8); //26619
     }
 }
