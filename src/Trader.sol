@@ -1,5 +1,3 @@
-//TODO: Liquidation Fee code
-//TODO: BORROWING_PER_SHARE_PER_SECOND decimal arrangement
 
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.8.19;
@@ -141,7 +139,6 @@ contract TraderContract is Ownable {
         _updateCollateralAndHandleFees(position,position.size - sizeToDecrease);
 
         position.size -= sizeToDecrease;
-
         uint256 currentPrice = priceFeed.getPrice();
         uint256 sizeToDecreaseInTokens = sizeToDecrease / currentPrice;
         position.sizeInTokens -= sizeToDecreaseInTokens;
