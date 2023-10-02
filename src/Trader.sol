@@ -20,6 +20,9 @@ contract TraderContract is Ownable {
     uint256 private _totalOpenInterest;
     uint256 public maxUtilizationPercentage = 80; // max utilization of total liquidity
     uint256 public BORROWING_PER_SHARE_PER_SECOND; //TODO
+    uint256 public constant LIQUIDATION_FEE = 5e18;
+    uint256 public constant DIVISOR = 100e36;
+
 
     enum PositionType {
         LONG,
@@ -46,7 +49,7 @@ contract TraderContract is Ownable {
     event PositionSizeIncreased(address indexed trader,uint256 positionId,uint256 additionalSize);
     event PositionClosed(address indexed trader);
 
-    modifier onlyOwnerOrTrusted() {
+    modifier onlyOwnerAllowed() {
         require(msg.sender == owner(), "Not authorized");
         _;
     }
@@ -61,7 +64,7 @@ contract TraderContract is Ownable {
     //      FEES
     //-------------------
 
-    function setPositionFeeBasisPoints(uint256 newFee) external onlyOwnerOrTrusted {
+    function setPositionFeeBasisPoints(uint256 newFee) external onlyOwnerAllowed {
         require(newFee >= 0 && newFee <= 200, "Fee out of bounds");
         positionFeeBasisPoints = newFee;
     }
@@ -141,7 +144,6 @@ contract TraderContract is Ownable {
         _updateCollateralAndHandleFees(position,position.size - sizeToDecrease);
 
         position.size -= sizeToDecrease;
-
         uint256 currentPrice = priceFeed.getPrice();
         uint256 sizeToDecreaseInTokens = sizeToDecrease / currentPrice;
         position.sizeInTokens -= sizeToDecreaseInTokens;
@@ -205,6 +207,28 @@ contract TraderContract is Ownable {
         require(newLeverage <= MAX_LEVERAGE, "Exceeds maximum leverage");
         position.lastUpdated = block.timestamp;
     }
+
+    function liquidatePosition(address trader, uint256 positionId) external {
+    Position storage targetPosition = positions[trader][positionId];
+    require(targetPosition.isOpen, "Position closed or doesn't exist.");
+    _updateCollateralAndHandleFees(targetPosition, targetPosition.size);
+    if(targetPosition.collateral == 0) {
+        return;
+    }
+
+    uint256 effectiveLeverage = targetPosition.size / targetPosition.collateral;
+    if (effectiveLeverage > MAX_LEVERAGE) {
+        // If position exceeds max leverage after accounting for PnL and fees, then liquidate
+        uint256 liquidatorReward = (targetPosition.collateral * LIQUIDATION_FEE) / DIVISOR; 
+        _asset.transfer(msg.sender, liquidatorReward);
+
+        // Return the remaining collateral to the trader after deducting the bonus
+        uint256 remainingCollateral = targetPosition.collateral - liquidatorReward;
+        _asset.transfer(trader, remainingCollateral);
+        _totalOpenInterest -= targetPosition.size;
+        targetPosition.isOpen = false;
+    }
+}
 
     function totalOpenInterest() public view returns (uint256) {
         return _totalOpenInterest;
