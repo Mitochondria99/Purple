@@ -1,29 +1,68 @@
-- README
+Our PERPETUAL PROTOCOL is a decentralized platform,which allows users to interact with financial trading functionalities backed by ERC20 assets. This protocol facilitates operations like opening,closing, adjusting, and liquidating leveraged positions for the traders and gives an opportunity to provide liquidity for additional gains. It integrates with a `LiquidityVault` and a `PriceFeed` to manage the financial computations and fees:
 
-  - How does the system work? How would a user interact with it?
-  - What actors are involved? Is there a keeper? What is the admin tasked with?
-  - What are the known risks/issues?
-  - Any pertinent formulas used.
+# How Does the System Work? How Would a User Interact with It?
 
-- Smart Contract(s) with the following functionalities, with corresponding tests:
+Users can deposit ERC20 collateral assets into the contract and interact with several trading functions. The contract provides functionalities to open, increase, decrease, and close leveraged trading positions. Additionally, users can liquidate positions that have breached allowed leverage limits. Whereas, LiquidityProviders can make use of a platform by providing liquidity in return of an incentive.
 
-  - ✅ Liquidity Providers can deposit and withdraw liquidity.
-  - ✅ A way to get the realtime price of the asset being traded.
-  - ✅ Traders can open a perpetual position for BTC, with a given size and collateral.
-  - ✅ Traders can increase the size of a perpetual position.
-  - ✅ Traders can increase the collateral of a perpetual position.
-  - ✅ Traders cannot utilize more than a configured percentage of the deposited liquidity.
-  - ✅ Liquidity providers cannot withdraw liquidity that is reserved for positions.
+## Contract Operations & Functions
 
-Functionalities to add with Mission 2:
+### Deposit and Manage Collateral
 
-- ✅ Traders can decrease the size of their position and realize a proportional amount of their PnL.
-- ✅ Traders can decrease the collateral of their position.
-- Individual position’s can be liquidated with a `liquidate` function, any address may invoke the `liquidate` function.
-- A `liquidatorFee` is taken from the position’s remaining collateral upon liquidation with the `liquidate` function and given to the caller of the `liquidate` function.
-- It is up to you whether the `liquidatorFee` is a percentage of the position’s remaining collateral or the position’s size, you should have a reasoning for your decision documented in the `README.md`.
-- ✅ Traders can never modify their position such that it would make the position liquidatable.
-- ✅ Traders are charged a `borrowingFee` which accrues as a function of their position size and the length of time the position is open.
-- ✅ Traders are charged a `positionFee` from their collateral whenever they change the size of their position, the `positionFee` is a percentage of the position size delta (USD converted to collateral token). — Optional/Bonus
+`depositCollateral` : Users deposit their ERC20 assets as collateral into the contract.
 
-# Edge Cases:
+`increaseCollateral`: Allows users to incrementally increase their collateral.
+
+## Position Management
+
+`openPosition`: Users can open leveraged long or short positions by specifying the size and position type.
+
+`increasePositionSize` & `decreasePositionSize`: Adjust the size of an existing position.
+
+`closePosition`: Close a specific position and reclaim any remaining collateral.
+
+# What actors are involved?
+
+`Users/Traders`: Individuals or entities using the contract to open and manage their trading positions.
+
+`Admin/Owner`: Has privileged access to modify certain contract parameters like position fees. The admin does not interact with user-specific data or user funds.
+
+`Liquidators`: Entities that monitor and liquidate positions that breach allowed leverage levels.
+Liquidators can invoke `liquidatePosition` function to liquidate a position that exceeds the permitted leverage. Liquidators are rewarded with a portion of the remaining collateral (`liquidatorReward`).
+
+`Liquidity providers` : Vital participants that supply the necessary liquidity for traders to engage in leveraged trading.
+
+# Liquidity Providers (LPs) and Incentives
+
+**LP Functions**
+
+`deposit`: Allows liquidity providers to deposit funds into the liquidity pool.
+
+`withdraw`: LPs can remove their funds, subject to certain conditions (like ensuring that total liquidity remains above a minimum threshold).
+
+### Incentive Mechanism
+
+Liquidity providers earn incentives based on the fees generated from traders' positions and the relative proportion of liquidity they've supplied.These fees are accumulated in the LiquidityVault and deducted from trader's position's collateral.
+
+##
+
+Borrowing Fees: These are fees associated with borrowing liquidity for leveraged positions. When a trader borrows funds to leverage their position, a fee is charged based on the borrowed amount.
+
+```
+borrowingFeeAmount = position.size * secondsSinceLastUpdate * BORROWING_PER_SHARE_PER_SECOND;
+
+```
+
+Position Fees: These are fees charged when a trader adjusts a position. It is separate from the borrowing fee and serves as a cost associated with the act of adjusting a trade.
+
+```
+positionFee = (sizeDelta * positionFeeBasisPoints) / 10_000;
+```
+
+### LiquidatorFee considerations:
+
+The `liquidatorReward` is computed as a fraction of the position’s remaining collateral, paid to the msg.sender who invokes the `liquidatePosition` function.
+When determining if liquidatorFee should be a percentage of the position’s remaining collateral or its size, we considered it's collateral be a suitable decision given the impact of this choice on incentive structures for liquidators, potential market manipulation, and fairness to position owners.
+
+### known risks/issues
+
+1. The given contracts haven't been tested completely, which may result in breaking of function logic.
