@@ -58,10 +58,15 @@ Position Fees: These are fees charged when a trader adjusts a position. It is se
 positionFee = (sizeDelta * positionFeeBasisPoints) / 10_000;
 ```
 
-### LiquidatorFee considerations:
+### LiquidatorReward considerations:
 
 The `liquidatorReward` is computed as a fraction of the position’s remaining collateral, paid to the msg.sender who invokes the `liquidatePosition` function.
 When determining if liquidatorFee should be a percentage of the position’s remaining collateral or its size, we considered it's collateral be a suitable decision given the impact of this choice on incentive structures for liquidators, potential market manipulation, and fairness to position owners.
+
+```
+liquidatorReward = (targetPosition.collateral * LIQUIDATION_FEE) / DIVISOR;
+
+```
 
 ### known risks/issues
 

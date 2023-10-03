@@ -50,7 +50,7 @@ contract TraderContract is Ownable {
         uint256 entryPrice;
         uint256 lastUpdated;
     }
-
+    AggregatorV3Interface private ethUsdPriceFeedData;
     mapping(address => uint256) public collaterals;
     mapping(address => Position[]) public positions;
 
@@ -101,7 +101,7 @@ contract TraderContract is Ownable {
     function openPosition(uint256 size,PositionType positionType) external returns (uint256) {
         if (size < minimumPositionSize) revert PositionSizeMismatch(size, minimumPositionSize);
         if (size / collaterals[msg.sender] > MAX_LEVERAGE) revert LeverageExceeded(size / collaterals[msg.sender], MAX_LEVERAGE);
-        uint256 currentPrice = priceFeed.getPrice();
+        uint256 currentPrice = priceFeed.getPrice(ethUsdPriceFeedData);
         uint256 sizeInTokens = size / currentPrice;
 
         // Calculate required collateral based on leverage
@@ -136,7 +136,7 @@ contract TraderContract is Ownable {
         // Adjusting for PnL and Fee before increasing the position
         _updateCollateralAndHandleFees(position,position.size + additionalSize);
 
-        uint256 currentPrice = priceFeed.getPrice();
+        uint256 currentPrice = priceFeed.getPrice(ethUsdPriceFeedData);
         uint256 additionalSizeInTokens = additionalSize / currentPrice;
 
         // Calculate additional collateral requirement based on the leverage
@@ -156,7 +156,7 @@ contract TraderContract is Ownable {
         _updateCollateralAndHandleFees(position,position.size - sizeToDecrease);
 
         position.size -= sizeToDecrease;
-        uint256 currentPrice = priceFeed.getPrice();
+        uint256 currentPrice = priceFeed.getPrice(ethUsdPriceFeedData);
         uint256 sizeToDecreaseInTokens = sizeToDecrease / currentPrice;
         position.sizeInTokens -= sizeToDecreaseInTokens;
         _totalOpenInterest -= sizeToDecrease;
@@ -174,7 +174,7 @@ contract TraderContract is Ownable {
     function _updateCollateralAndHandleFees(Position storage position,uint256 newSize) internal {
         if (!position.isOpen) revert PositionClosedOrNonexistent();
 
-        uint256 currentPrice = priceFeed.getPrice();
+        uint256 currentPrice = priceFeed.getPrice(ethUsdPriceFeedData);
         int256 totalPnL;
 
         if (position.positionType == PositionType.LONG) {
