@@ -27,8 +27,7 @@ contract LiquidityVault is ERC4626, Ownable {
         uint256 _basisPoints,
         string memory name,
         string memory symbol,
-        address traderAddress,
-        uint256 _basisPoints;
+        address traderAddress
     ) ERC4626(assetToken) ERC20(name, symbol) {
         _asset = assetToken;
         vaultOwner = payable(msg.sender);
@@ -100,11 +99,11 @@ contract LiquidityVault is ERC4626, Ownable {
         return shares;
     }
 
-    function _penaltyFeeBasisPoints() internal view override returns (uint256) {
+    function _penaltyFeeBasisPoints() internal view returns (uint256) {
         return penaltyFeeBasisPoints;
     }
 
-    function _penaltyFeeRecipient() internal view override returns (address) {
+    function _penaltyFeeRecipient() internal view returns (address) {
         return vaultOwner;
     }
 

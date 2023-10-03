@@ -39,6 +39,8 @@ Liquidators can invoke `liquidatePosition` function to liquidate a position that
 
 `withdraw`: LPs can remove their funds, subject to certain conditions (like ensuring that total liquidity remains above a minimum threshold).
 
+Penalty is given to the liquidity providers for providing unneccesary liquidity.
+
 ### Incentive Mechanism
 
 Liquidity providers earn incentives based on the fees generated from traders' positions and the relative proportion of liquidity they've supplied.These fees are accumulated in the LiquidityVault and deducted from trader's position's collateral.
@@ -71,4 +73,3 @@ liquidatorReward = (targetPosition.collateral * LIQUIDATION_FEE) / DIVISOR;
 ### known risks/issues
 
 1. The given contracts haven't been tested completely, which may result in breaking of function logic.
-2. Penalty is given to the liquidity providers for proving unneccesary liquidity.
