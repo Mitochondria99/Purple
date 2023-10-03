@@ -99,8 +99,16 @@ contract LiquidityVault is ERC4626, Ownable {
         return shares;
     }
 
-    function _penaltyFeeBasisPoints() internal view returns (uint256) {
-        return penaltyFeeBasisPoints;
+    function _penaltyFee() internal view returns (uint256) {
+        //---------------------------
+        // Basic Implementation
+        //---------------------------
+        //  if (provider.liquidityProvided > maxLiquidity) {
+        //     uint256 excess = provider.liquidityProvided - maxLiquidity;
+        //     uint256 penalty = (excess * penaltyPercent) / 100;
+        // //     baseReward -= penalty;
+        // // }
+        // return penaltyFeeBasisPoints;
     }
 
     function _penaltyFeeRecipient() internal view returns (address) {

@@ -73,3 +73,4 @@ liquidatorReward = (targetPosition.collateral * LIQUIDATION_FEE) / DIVISOR;
 ### known risks/issues
 
 1. The given contracts haven't been tested completely, which may result in breaking of function logic.
+2. Function logic for liquidity provider penalty hasn't completed.
