@@ -5,7 +5,7 @@ We’ll go over the `balanceOf` function together to get an initial understandin
 
 
 
-# 1. In the safeTransferFrom function, what does `0x23b872dd000000000000000000000000` represent and what does it mean when used in the following context on line 192: `mstore(0x0c, 0x23b872dd000000000000000000000000)`.
+## 1. In the safeTransferFrom function, what does `0x23b872dd000000000000000000000000` represent and what does it mean when used in the following context on line 192: `mstore(0x0c, 0x23b872dd000000000000000000000000)`.
 
 Ans.
 
@@ -16,7 +16,7 @@ Ans.
 
 
 
-# 2. In the `safeTransferFrom` function, why is `shl` used on line 191 to shift the `from` to the left by 96 bits?
+## 2. In the `safeTransferFrom` function, why is `shl` used on line 191 to shift the `from` to the left by 96 bits?
 
 Ans.
 
@@ -32,7 +32,7 @@ So, when `` mstore(0x2c, shl(96, from))// Store the `from` argument `` is execut
 
 
 
-# 3. In the `safeTransferFrom` function, is this memory safe assembly? Why or why not?
+## 3. In the `safeTransferFrom` function, is this memory safe assembly? Why or why not?
 
    Yes,this is memory safe assembly.
    The function starts with `let m := mload(0x40)` which fetches the current **free memory pointer** in Ethereum. This pointer indicates where in memory you can safely start writing data without overwriting anything important.
@@ -43,7 +43,7 @@ So, when `` mstore(0x2c, shl(96, from))// Store the `from` argument `` is execut
 
 
 
-#  4. In the `safeTransferFrom` function, on line 197, why is 0x1c provided as the 4th argument to `call`?
+##  4. In the `safeTransferFrom` function, on line 197, why is 0x1c provided as the 4th argument to `call`?
 
    In the safeTransferFrom function, the call function is used to invoke another contract. The call function in Solidity's inline assembly has the following format:
 
@@ -71,7 +71,7 @@ out_size: The size (in bytes) of the space allocated for the output data.
 
 
 
-# 5. In the `safeTransfer` function, on line 266, why is `revert` used with `0x1c` and `0x04`.
+## 5. In the `safeTransfer` function, on line 266, why is `revert` used with `0x1c` and `0x04`.
 
    The revert function in Solidity's inline assembly is used to stop and revert the current call, essentially canceling all state changes made during the call.
    `revert(start_position, size)`
@@ -89,13 +89,13 @@ out_size: The size (in bytes) of the space allocated for the output data.
 
 
 
-# 6. In the `safeTransfer` function, on line 268, why is `0` mstore’d at `0x34`.
+## 6. In the `safeTransfer` function, on line 268, why is `0` mstore’d at `0x34`.
 
 The memory location 0x34 was used temporarily to store a value (amount). Before exiting the function, the code is resetting that memory spot by setting it to 0. It's a way of cleaning up after using the memory to avoid errors.
 
 
 
-# 7. In the `safeApprove` function, on line 317, why is `mload(0x00)` validated for equality to 1?
+## 7. In the `safeApprove` function, on line 317, why is `mload(0x00)` validated for equality to 1?
 
    `  or(eq(mload(0x00), 1), iszero(returndatasize()))`
 
@@ -111,7 +111,7 @@ The memory location 0x34 was used temporarily to store a value (amount). Before 
 
 
 
-# 8. In the `safeApprove` function, if the `token` returns `false` from the `approve(address,uint256)` function, what happens?
+## 8. In the `safeApprove` function, if the `token` returns `false` from the `approve(address,uint256)` function, what happens?
 
    1. The approve function will return false, which in Ethereum is represented by 0.
    2. The memory location 0x00 will then hold this value (0).
