@@ -1,8 +1,8 @@
 
-## Side Quest 1 
+## Side Quest 1
 
 
-### 1. In the safeTransferFrom function, what does 0x23b872dd000000000000000000000000 represent and what does it mean when used in the following context on line 192: mstore(0x0c, 0x23b872dd000000000000000000000000)
+### 1. In the safeTransferFrom function, what does 0x23b872dd000000000000000000000000 represent and what does it mean when used in the following context on line 192: mstore(0x0c, 0x23b872dd000000000000000000000000).
 
  - This 0x23b872dd000000000000000000000000 represents the function selector for transferFrom and all of the zeros at the end are used to get rid of all of the dirty bytes that are left from the address.
 
