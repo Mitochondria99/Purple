@@ -1,5 +1,4 @@
 //check ERC4626 thoroughly
-// ReserveLiquidity issue to be corrected
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -15,54 +14,108 @@ interface ITrader {
 }
 
 contract LiquidityVault is ERC4626, Ownable {
+    address payable public vaultOwner;
     IERC20 private _asset;
     ITrader private trader;
+    uint256 public penaltyFeeBasisPoints; // penalty applied on providing unneccesary liquidity
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
 
     constructor(
         IERC20 assetToken,
+        uint256 _basisPoints,
         string memory name,
         string memory symbol,
         address traderAddress
     ) ERC4626(assetToken) ERC20(name, symbol) {
         _asset = assetToken;
+        vaultOwner = payable(msg.sender);
         trader = ITrader(traderAddress);
+        penaltyFeeBasisPoints = _basisPoints;
     }
 
     function setTraderAddress(address newTraderAddress) external onlyOwner {
         trader = ITrader(newTraderAddress);
     }
 
-    function deposit(uint256 amount) external {
-        require(amount > 0, "Deposit amount should be > 0");
-        _asset.transferFrom(msg.sender, address(this), amount);
-        uint256 sharesToMint = previewDeposit(amount);
-        _mint(msg.sender, sharesToMint);
-        emit Deposited(msg.sender, amount);
-    }
-
-    function withdraw(uint256 shares) external {
-        require(shares > 0, "Withdrawal shares should be > 0");
-        require(balanceOf(msg.sender) >= shares, "Insufficient shares");
-
-        uint256 assetsToReturn = previewWithdraw(shares);
-
-        // Utilization check
-        uint256 openInterest = trader.totalOpenInterest();
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) public virtual override returns (uint256) {
         require(
-            (openInterest * 100) / (totalAssets() - assetsToReturn) <=
-                trader.maxUtilizationPercentage(),
-            "Exceeds max utilization"
+            assets <= maxDeposit(receiver),
+            "ERC4626: deposit more than max"
         );
 
-        _burn(msg.sender, shares);
-        _asset.transfer(msg.sender, assetsToReturn);
-        emit Withdrawn(msg.sender, assetsToReturn);
+        uint256 shares = previewDeposit(assets);
+        _deposit(_msgSender(), receiver, assets, shares);
+        afterDeposit(assets, shares);
+
+        return shares;
     }
 
-    function totalAssets() public view override returns (uint256) {
-        return _asset.balanceOf(address(this));
+    function mint(
+        uint256 shares,
+        address receiver
+    ) public virtual override returns (uint256) {
+        require(shares <= maxMint(receiver), "ERC4626: mint more than max");
+
+        uint256 assets = previewMint(shares);
+        _deposit(_msgSender(), receiver, assets, shares);
+        afterDeposit(assets, shares);
+
+        return assets;
     }
+
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256) {
+        require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
+
+        uint256 assets = previewRedeem(shares);
+        beforeWithdraw(assets, shares);
+        _withdraw(_msgSender(), receiver, owner, assets, shares);
+
+        return assets;
+    }
+
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256) {
+        require(
+            assets <= maxWithdraw(owner),
+            "ERC4626: withdraw more than max"
+        );
+
+        uint256 shares = previewWithdraw(assets);
+        beforeWithdraw(assets, shares);
+        _withdraw(_msgSender(), receiver, owner, assets, shares);
+
+        return shares;
+    }
+
+    function _penaltyFee() internal view returns (uint256) {
+        //---------------------------
+        // Basic Implementation
+        //---------------------------
+        //  if (provider.liquidityProvided > maxLiquidity) {
+        //     uint256 excess = provider.liquidityProvided - maxLiquidity;
+        //     uint256 penalty = (excess * penaltyPercent) / 100;
+        // //     baseReward -= penalty;
+        // // }
+        // return penaltyFeeBasisPoints;
+    }
+
+    function _penaltyFeeRecipient() internal view returns (address) {
+        return vaultOwner;
+    }
+
+    function afterDeposit(uint256 assets, uint256 shares) internal virtual {}
+
+    function beforeWithdraw(uint256 assets, uint256 shares) internal virtual {}
 }
